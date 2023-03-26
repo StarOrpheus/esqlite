@@ -1,0 +1,12 @@
+{
+  "name" : "esqlite",
+  "version-string" : "1.0.0",
+  "builtin-baseline" : "e249dfb528731136b66d5fab6c6e00be243cbbbc",
+  "dependencies" : [ {
+    "name" : "sqlite3",
+    "version>=" : "3.40.1#1"
+  }, {
+    "name" : "gtest",
+    "version>=" : "1.13.0"
+  } ]
+}
