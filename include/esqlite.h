@@ -293,6 +293,29 @@ struct Statement final {
     return Result;
   }
 
+  template <class... ColTs>
+  auto runReading() -> Generator<ExpectedT<std::tuple<ColTs...>>> {
+    while (true) {
+      auto E = step();
+      if (!E) [[unlikely]] {
+        co_yield std::unexpected(E.error());
+        co_return;
+      }
+
+      if (*E == Statement::StepOk::STEP_DONE)
+        co_return;
+
+      if (*E == Statement::StepOk::STEP_BUSY) [[unlikely]] {
+        co_yield std::unexpected("Db is busy");
+        co_return;
+      }
+
+      co_yield readTuple<ColTs...>();
+    }
+
+    co_return;
+  }
+
 private:
   constexpr Statement(sqlite3_stmt *Handle) noexcept : Handle(Handle) {}
 
@@ -371,7 +394,7 @@ struct Connection final {
 
   template <class... ColTs, class... BindTs>
   auto runReading(std::string_view Sql, BindTs &&...BindParams)
-      -> std::experimental::generator<ExpectedT<std::tuple<ColTs...>>> {
+      -> Generator<ExpectedT<std::tuple<ColTs...>>> {
     auto Stmt = prepare(Sql);
     if (!Stmt) [[unlikely]]
       co_return std::unexpected(Stmt.error());
@@ -381,56 +404,20 @@ struct Connection final {
       co_return E;
     }
 
-    while (true) {
-      auto E = Stmt->step();
-      if (!E) [[unlikely]] {
-        co_yield std::unexpected(E.error());
-        co_return;
-      }
-
-      if (*E == Statement::StepOk::STEP_DONE)
-        co_return;
-
-      if (*E == Statement::StepOk::STEP_BUSY) [[unlikely]] {
-        co_yield std::unexpected("Db is busy");
-        co_return;
-      }
-
-      co_yield Stmt->readTuple<ColTs...>();
-    }
-
-    co_return;
+    co_yield Stmt->runReading<ColTs...>();
   }
 
   template <class... ColTs>
   auto runReading(std::string_view Sql)
-      -> std::experimental::generator<ExpectedT<std::tuple<ColTs...>>> {
+      -> Generator<ExpectedT<std::tuple<ColTs...>>> {
     auto Stmt = prepare(Sql);
     if (!Stmt) [[unlikely]] {
       co_yield std::unexpected(Stmt.error());
       co_return;
     }
 
-    while (true) {
-      auto E = Stmt->step();
-      if (!E) [[unlikely]] {
-        co_yield std::unexpected(E.error());
-        co_return;
-      }
-
-      if (*E == Statement::StepOk::STEP_DONE)
-        co_return;
-
-      if (*E == Statement::StepOk::STEP_BUSY) [[unlikely]] {
-        co_yield std::unexpected("Db is busy");
-        co_return;
-      }
-
-      auto T = Stmt->readTuple<ColTs...>();
-      co_yield T;
-    }
-
-    co_return;
+    for (auto&& Value : Stmt->runReading<ColTs...>())
+      co_yield std::forward<decltype(Value)>(Value);
   }
 
 private:
