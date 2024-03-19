@@ -259,7 +259,7 @@ struct Statement final {
 
   auto readColumns(int FirstIdx) noexcept -> ExpectedT<void> { return {}; }
 
-  template <typename T> auto readPod() noexcept -> ExpectedT<T> {
+  template <class T> auto readPod() noexcept -> ExpectedT<T> {
     ExpectedT<T> Result{T()};
     auto TupledPod = asRefTuple(*Result);
     using TupleT = decltype(TupledPod);
@@ -320,8 +320,8 @@ struct Connection final {
     return {Statement(Handle)};
   }
 
-  template <typename... Ts>
-  auto exec(std::string_view Sql, Ts &&...BindParams) noexcept
+  template <class... Ts>
+  auto run(std::string_view Sql, Ts &&...BindParams) noexcept
       -> ExpectedT<void> {
     auto Stmt = prepare(Sql);
     if (!Stmt) [[unlikely]]
@@ -338,7 +338,7 @@ struct Connection final {
     return {};
   }
 
-  auto exec(std::string_view Sql) noexcept -> ExpectedT<void> {
+  auto run(std::string_view Sql) noexcept -> ExpectedT<void> {
     auto Stmt = prepare(Sql);
     if (!Stmt) [[unlikely]]
       return std::unexpected(Stmt.error());

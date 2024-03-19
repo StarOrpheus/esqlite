@@ -37,7 +37,7 @@ TEST(correctness_simple, check_insert) {
                                   "NOT NULL, str2 TEXT NOT NULL)");
   ASSERT_EXPECTED(InsertStmt);
   ASSERT_EXPECTED_V(InsertStmt->step(), Statement::StepOk::STEP_DONE);
-  ASSERT_FALSE(Conn->exec("CREATE TABLE KEK (str1 TEXT, str2 TEXT)"));
+  ASSERT_FALSE(Conn->run("CREATE TABLE KEK (str1 TEXT, str2 TEXT)"));
 }
 
 struct KekPod {
@@ -49,10 +49,10 @@ struct KekPod {
 TEST(correctness_simple, read_write) {
   auto Conn = open("file.sqlite");
   ASSERT_EXPECTED(Conn);
-  ASSERT_EXPECTED(Conn->exec("DROP TABLE IF EXISTS KEK"));
-  ASSERT_EXPECTED(Conn->exec("CREATE TABLE KEK (str TEXT, n1 INT, n2 REAL)"));
+  ASSERT_EXPECTED(Conn->run("DROP TABLE IF EXISTS KEK"));
+  ASSERT_EXPECTED(Conn->run("CREATE TABLE KEK (str TEXT, n1 INT, n2 REAL)"));
   std::string_view TextSample = "Hello world!";
-  ASSERT_EXPECTED(Conn->exec("INSERT INTO KEK (str, n1, n2) VALUES (?, ?, ?)", TextSample, 1, 2.51));
+  ASSERT_EXPECTED(Conn->run("INSERT INTO KEK (str, n1, n2) VALUES (?, ?, ?)", TextSample, 1, 2.51));
   {
     auto Stmt = Conn->prepare("SELECT * FROM KEK");
     ASSERT_EXPECTED(Stmt);
