@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <tuple>
 
 namespace esqlite {
@@ -19,11 +20,11 @@ inline constexpr bool is_any_of_v = (std::is_same_v<T, Ts> || ...);
 
 template <typename T>
 inline constexpr bool is_sqlite_numeric_v =
-    is_any_of_v<std::decay_t<T>, int, int64_t, double>;
+    is_any_of_v<std::decay_t<T>, int, std::int64_t, double>;
 
 template <typename T>
 inline constexpr bool is_sqlite_null =
-    is_any_of_v<std::decay_t<T>, void, nullptr_t>;
+    is_any_of_v<std::decay_t<T>, void, std::nullptr_t>;
 
 template <typename T>
 inline constexpr bool is_sqlite_text =
@@ -32,9 +33,9 @@ inline constexpr bool is_sqlite_text =
 template <typename T>
 inline constexpr bool is_sqlite_blob =
     is_any_of_v<std::decay_t<T>, std::vector<char>, std::vector<const char>,
-                std::vector<uint8_t>, std::vector<const uint8_t>,
-                std::span<char>, std::span<const char>, std::span<uint8_t>,
-                std::span<const uint8_t>>;
+                std::vector<std::uint8_t>, std::vector<const std::uint8_t>,
+                std::span<char>, std::span<const char>, std::span<std::uint8_t>,
+                std::span<const std::uint8_t>>;
 
 template <class T> auto asRefTuple(T &Object) noexcept {
   using type = std::decay_t<T>;
