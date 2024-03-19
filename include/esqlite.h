@@ -13,7 +13,10 @@
 
 #include <sqlite3.h>
 
+#include "generator.h"
 #include "type_traits.h"
+
+#include <cassert>
 
 namespace esqlite {
 
@@ -125,6 +128,7 @@ struct Statement final {
     } else if constexpr (is_sqlite_null<T>) {
       return bindNull(Idx);
     }
+    assert(false && "Illegal type param");
     std::unreachable();
   }
 
@@ -167,6 +171,7 @@ struct Statement final {
       return {StepOk::STEP_DONE};
     if (E == SQLITE_BUSY)
       return {StepOk::STEP_BUSY};
+    assert(false && "unkown step error");
     std::unreachable();
   }
 
@@ -243,6 +248,7 @@ struct Statement final {
         return std::unexpected(E.error());
       Param = *E;
     } else {
+      assert(false && "Illegal type param");
       std::unreachable();
     }
     return {};
@@ -271,6 +277,19 @@ struct Statement final {
     auto E = std::apply(ReadFromZero, TupledPod);
     if (!E) [[unlikely]]
       Result = std::unexpected(E.error());
+    return Result;
+  }
+
+  template <class... Ts>
+  auto readTuple() noexcept -> ExpectedT<std::tuple<Ts...>> {
+    std::tuple<Ts...> Result;
+    auto ReadFromZero = [this](auto &&...ColTs) {
+      return readColumns(0, std::forward<decltype(ColTs)>(ColTs)...);
+    };
+
+    auto E = std::apply(ReadFromZero, Result);
+    if (!E) [[unlikely]]
+      return std::unexpected(E.error());
     return Result;
   }
 
@@ -348,6 +367,70 @@ struct Connection final {
     }
 
     return {};
+  }
+
+  template <class... ColTs, class... BindTs>
+  auto runReading(std::string_view Sql, BindTs &&...BindParams)
+      -> std::experimental::generator<ExpectedT<std::tuple<ColTs...>>> {
+    auto Stmt = prepare(Sql);
+    if (!Stmt) [[unlikely]]
+      co_return std::unexpected(Stmt.error());
+
+    if (auto E = Stmt->bindParams(1, std::forward<BindTs>(BindParams)...); !E)
+        [[unlikely]] {
+      co_return E;
+    }
+
+    while (true) {
+      auto E = Stmt->step();
+      if (!E) [[unlikely]] {
+        co_yield std::unexpected(E.error());
+        co_return;
+      }
+
+      if (*E == Statement::StepOk::STEP_DONE)
+        co_return;
+
+      if (*E == Statement::StepOk::STEP_BUSY) [[unlikely]] {
+        co_yield std::unexpected("Db is busy");
+        co_return;
+      }
+
+      co_yield Stmt->readTuple<ColTs...>();
+    }
+
+    co_return;
+  }
+
+  template <class... ColTs>
+  auto runReading(std::string_view Sql)
+      -> std::experimental::generator<ExpectedT<std::tuple<ColTs...>>> {
+    auto Stmt = prepare(Sql);
+    if (!Stmt) [[unlikely]] {
+      co_yield std::unexpected(Stmt.error());
+      co_return;
+    }
+
+    while (true) {
+      auto E = Stmt->step();
+      if (!E) [[unlikely]] {
+        co_yield std::unexpected(E.error());
+        co_return;
+      }
+
+      if (*E == Statement::StepOk::STEP_DONE)
+        co_return;
+
+      if (*E == Statement::StepOk::STEP_BUSY) [[unlikely]] {
+        co_yield std::unexpected("Db is busy");
+        co_return;
+      }
+
+      auto T = Stmt->readTuple<ColTs...>();
+      co_yield T;
+    }
+
+    co_return;
   }
 
 private:

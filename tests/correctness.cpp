@@ -64,3 +64,33 @@ TEST(correctness_simple, read_write) {
     ASSERT_EQ(Pod->N2, 2.51);
   }
 }
+
+TEST(correctness_simple, read_generator_iterable) {
+  auto Conn = open_v2("file.sqlite", SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_MEMORY);
+  ASSERT_EXPECTED(Conn);
+  ASSERT_EXPECTED(Conn->run("DROP TABLE IF EXISTS KEK"));
+  ASSERT_EXPECTED(Conn->run("CREATE TABLE KEK (str TEXT, n1 INT, n2 REAL)"));
+  std::string_view TextSample = "Hello world!";
+  ASSERT_EXPECTED(Conn->run("INSERT INTO KEK (str, n1, n2) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)", TextSample, 1, 2.51, TextSample, 2, 3.51, TextSample, 3, 4.51));
+
+  auto ReadRange = Conn->runReading<std::string_view, int, double>("SELECT * FROM KEK");
+  auto First = ReadRange.begin();
+  auto End = ReadRange.end();
+
+  ASSERT_NE(First, End);
+  ASSERT_EXPECTED(*First);
+  ASSERT_EQ(**First, std::tuple(TextSample, 1, 2.51));
+  ++First;
+
+  ASSERT_NE(First, End);
+  ASSERT_EXPECTED(*First);
+  ASSERT_EQ(**First, std::tuple(TextSample, 2, 3.51));
+  ++First;
+
+  ASSERT_NE(First, End);
+  ASSERT_EXPECTED(*First);
+  ASSERT_EQ(**First, std::tuple(TextSample, 3, 4.51));
+  ++First;
+
+  ASSERT_EQ(First, End);
+}
