@@ -39,7 +39,7 @@ struct Statement final {
       : Handle(std::exchange(Other.Handle, nullptr)) {}
 
   constexpr Statement &operator=(Statement &&Other) noexcept {
-    if (this == &Other)
+    if (this == &Other) [[unlikely]]
       return *this;
     this->~Statement();
     Handle = std::exchange(Other.Handle, nullptr);
@@ -49,53 +49,53 @@ struct Statement final {
   ~Statement() noexcept { sqlite3_finalize(Handle); }
 
   auto bindNumeric(unsigned Ind, double D) noexcept -> ExpectedT<void> {
-    if (!Handle)
+    if (!Handle) [[unlikely]]
       return std::unexpected("Statement handle is null");
 
     int E = sqlite3_bind_double(Handle, Ind, D);
-    if (E != SQLITE_OK)
+    if (E != SQLITE_OK) [[unlikely]]
       return std::unexpected(sqlite3_errstr(E));
     return {};
   }
 
   auto bindNumeric(unsigned Ind, int D) noexcept -> ExpectedT<void> {
-    if (!Handle)
+    if (!Handle) [[unlikely]]
       return std::unexpected("Statement handle is null");
 
     int E = sqlite3_bind_int(Handle, Ind, D);
-    if (E != SQLITE_OK)
+    if (E != SQLITE_OK) [[unlikely]]
       return std::unexpected(sqlite3_errstr(E));
     return {};
   }
 
   auto bindNumeric(unsigned Ind, int64_t D) noexcept -> ExpectedT<void> {
-    if (!Handle)
+    if (!Handle) [[unlikely]]
       return std::unexpected("Statement handle is null");
 
     int E = sqlite3_bind_int64(Handle, Ind, D);
-    if (E != SQLITE_OK)
+    if (E != SQLITE_OK) [[unlikely]]
       return std::unexpected(sqlite3_errstr(E));
     return {};
   }
 
   auto bindNull(unsigned Ind) noexcept -> ExpectedT<void> {
-    if (!Handle)
+    if (!Handle) [[unlikely]]
       return std::unexpected("Statement handle is null");
 
     int E = sqlite3_bind_null(Handle, Ind);
-    if (E != SQLITE_OK)
+    if (E != SQLITE_OK) [[unlikely]]
       return std::unexpected(sqlite3_errstr(E));
     return {};
   }
 
   auto bindText(unsigned Ind, std::string_view S, bool IsStatic) noexcept
       -> ExpectedT<void> {
-    if (!Handle)
+    if (!Handle) [[unlikely]]
       return std::unexpected("Statement handle is null");
 
     int E = sqlite3_bind_text(Handle, Ind, S.data(), S.size(),
                               IsStatic ? SQLITE_STATIC : SQLITE_TRANSIENT);
-    if (E != SQLITE_OK)
+    if (E != SQLITE_OK) [[unlikely]]
       return std::unexpected(sqlite3_errstr(E));
     return {};
   }
@@ -104,12 +104,12 @@ struct Statement final {
 
   auto bindBlob(unsigned Ind, std::span<uint8_t> S, bool IsStatic) noexcept
       -> ExpectedT<void> {
-    if (!Handle)
+    if (!Handle) [[unlikely]]
       return std::unexpected("Statement handle is null");
 
     int E = sqlite3_bind_blob(Handle, Ind, S.data(), S.size(),
                               IsStatic ? SQLITE_STATIC : SQLITE_TRANSIENT);
-    if (E != SQLITE_OK)
+    if (E != SQLITE_OK) [[unlikely]]
       return std::unexpected(sqlite3_errstr(E));
     return {};
   }
@@ -132,7 +132,7 @@ struct Statement final {
   auto bindParams(size_t FirstIdx, T &&First, Ts &&...Params) noexcept
       -> ExpectedT<void> {
     auto E = bindParam(FirstIdx, std::forward<T>(First));
-    if (!E)
+    if (!E) [[unlikely]]
       return E;
     return bindParams(FirstIdx + 1, std::forward<Ts>(Params)...);
   }
@@ -148,15 +148,15 @@ struct Statement final {
   };
 
   auto step() noexcept -> ExpectedT<StepOk> {
-    if (!Handle)
+    if (!Handle) [[unlikely]]
       return std::unexpected("Statement handle is null");
 
     int E = sqlite3_step(Handle);
     if (E == SQLITE_OK || E == SQLITE_ROW)
       return {StepOk::STEP_ROW};
-    if (E == SQLITE_ERROR)
+    if (E == SQLITE_ERROR) [[unlikely]]
       return std::unexpected(sqlite3_errstr(E));
-    if (E == SQLITE_MISUSE)
+    if (E == SQLITE_MISUSE) [[unlikely]]
       return std::unexpected(
           "SQLITE_MISUSE: routine was called inappropriately. Perhaps it was "
           "called on a prepared statement that has already been finalized or "
@@ -171,17 +171,17 @@ struct Statement final {
   }
 
   auto reset() noexcept -> ExpectedT<void> {
-    if (!Handle)
+    if (!Handle) [[unlikely]]
       return std::unexpected("Statement handle is null");
 
     int E = sqlite3_reset(Handle);
-    if (E != SQLITE_OK)
+    if (E != SQLITE_OK) [[unlikely]]
       return std::unexpected(sqlite3_errstr(E));
     return {};
   }
 
   auto readNumeric(int Idx, int &X) noexcept -> ExpectedT<void> {
-    if (!Handle)
+    if (!Handle) [[unlikely]]
       return std::unexpected("Statement handle is null");
 
     X = sqlite3_column_int(Handle, Idx);
@@ -189,7 +189,7 @@ struct Statement final {
   }
 
   auto readNumeric(int Idx, std::int64_t &X) noexcept -> ExpectedT<void> {
-    if (!Handle)
+    if (!Handle) [[unlikely]]
       return std::unexpected("Statement handle is null");
 
     X = sqlite3_column_int64(Handle, Idx);
@@ -197,7 +197,7 @@ struct Statement final {
   }
 
   auto readNumeric(int Idx, double &X) noexcept -> ExpectedT<void> {
-    if (!Handle)
+    if (!Handle) [[unlikely]]
       return std::unexpected("Statement handle is null");
 
     X = sqlite3_column_double(Handle, Idx);
@@ -205,7 +205,7 @@ struct Statement final {
   }
 
   auto readText(int Idx) noexcept -> ExpectedT<std::string_view> {
-    if (!Handle)
+    if (!Handle) [[unlikely]]
       return std::unexpected("Statement handle is null");
 
     auto const *Text =
@@ -217,7 +217,7 @@ struct Statement final {
   }
 
   auto readBlob(int Idx) noexcept -> ExpectedT<std::span<const uint8_t>> {
-    if (!Handle)
+    if (!Handle) [[unlikely]]
       return std::unexpected("Statement handle is null");
 
     auto const *Data =
@@ -234,12 +234,12 @@ struct Statement final {
       return readNumeric(Idx, Param);
     } else if constexpr (std::is_assignable_v<T, std::string_view>) {
       auto E = readText(Idx);
-      if (!E)
+      if (!E) [[unlikely]]
         return std::unexpected(E.error());
       Param = *E;
     } else if constexpr (std::is_assignable_v<T, std::span<uint8_t const>>) {
       auto E = readBlob(Idx);
-      if (!E)
+      if (!E) [[unlikely]]
         return std::unexpected(E.error());
       Param = *E;
     } else {
@@ -252,7 +252,7 @@ struct Statement final {
   auto readColumns(int FirstIdx, T &Param, Ts &...Others) noexcept
       -> ExpectedT<void> {
     auto E = readColumn(FirstIdx, Param);
-    if (!E)
+    if (!E) [[unlikely]]
       return E;
     return readColumns(FirstIdx + 1, Others...);
   }
@@ -269,7 +269,7 @@ struct Statement final {
     };
 
     auto E = std::apply(ReadFromZero, TupledPod);
-    if (!E)
+    if (!E) [[unlikely]]
       Result = std::unexpected(E.error());
     return Result;
   }
@@ -295,7 +295,7 @@ struct Connection final {
       : RawHandle(std::exchange(Other.RawHandle, nullptr)) {}
 
   constexpr Connection &operator=(Connection &&Other) noexcept {
-    if (this == &Other)
+    if (this == &Other) [[unlikely]]
       return *this;
     this->~Connection();
 
@@ -306,14 +306,14 @@ struct Connection final {
   ~Connection() noexcept { sqlite3_close(RawHandle); }
 
   auto prepare(std::string_view Sql) noexcept -> ExpectedT<Statement> {
-    if (!RawHandle)
+    if (!RawHandle) [[unlikely]]
       return std::unexpected("DB handle is null");
 
     sqlite3_stmt *Handle = nullptr;
 
     int E =
         sqlite3_prepare_v2(RawHandle, Sql.data(), Sql.size(), &Handle, nullptr);
-    if (E != SQLITE_OK) {
+    if (E != SQLITE_OK) [[unlikely]] {
       return std::unexpected(sqlite3_errstr(E));
     }
 
@@ -324,14 +324,14 @@ struct Connection final {
   auto exec(std::string_view Sql, Ts &&...BindParams) noexcept
       -> ExpectedT<void> {
     auto Stmt = prepare(Sql);
-    if (!Stmt)
+    if (!Stmt) [[unlikely]]
       return std::unexpected(Stmt.error());
 
     if (auto E = Stmt->bindParams(1, std::forward<Ts>(BindParams)...); !E) {
       return E;
     }
 
-    if (auto E = Stmt->step(); !E) {
+    if (auto E = Stmt->step(); !E) [[unlikely]] {
       return std::unexpected(Stmt.error());
     }
 
@@ -340,10 +340,10 @@ struct Connection final {
 
   auto exec(std::string_view Sql) noexcept -> ExpectedT<void> {
     auto Stmt = prepare(Sql);
-    if (!Stmt)
+    if (!Stmt) [[unlikely]]
       return std::unexpected(Stmt.error());
 
-    if (auto E = Stmt->step(); !E) {
+    if (auto E = Stmt->step(); !E) [[unlikely]] {
       return std::unexpected(Stmt.error());
     }
 
@@ -356,7 +356,7 @@ private:
   friend auto open(std::string_view Path) noexcept -> ExpectedT<Connection> {
     sqlite3 *Handle = nullptr;
     auto E = sqlite3_open(Path.data(), &Handle);
-    if (E != SQLITE_OK)
+    if (E != SQLITE_OK) [[unlikely]]
       return std::unexpected(sqlite3_errstr(E));
     return {Connection(Handle)};
   }
@@ -364,7 +364,7 @@ private:
   friend auto open16(std::string_view Path) noexcept -> ExpectedT<Connection> {
     sqlite3 *Handle = nullptr;
     auto E = sqlite3_open16(Path.data(), &Handle);
-    if (E != SQLITE_OK)
+    if (E != SQLITE_OK) [[unlikely]]
       return std::unexpected(sqlite3_errstr(E));
     return {Connection(Handle)};
   }
@@ -373,7 +373,7 @@ private:
       -> ExpectedT<Connection> {
     sqlite3 *Handle = nullptr;
     auto E = sqlite3_open_v2(Path.data(), &Handle, Flags, nullptr);
-    if (E != SQLITE_OK)
+    if (E != SQLITE_OK) [[unlikely]]
       return std::unexpected(sqlite3_errstr(E));
     return {Connection(Handle)};
   }
