@@ -404,7 +404,8 @@ struct Connection final {
       co_return E;
     }
 
-    co_yield Stmt->runReading<ColTs...>();
+    for (auto&& Value : Stmt->runReading<ColTs...>())
+      co_yield std::forward<decltype(Value)>(Value);
   }
 
   template <class... ColTs>
